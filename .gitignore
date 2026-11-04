@@ -1,0 +1,21 @@
+# .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+
+# Rider / VS
+.vs/
+.idea/
+
+# Published output
+publish/
+artifacts/
+
+# Local runtime data (never commit a family's usage data!)
+*.db
+*.db-wal
+*.db-shm
+policy.json
