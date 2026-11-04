@@ -15,6 +15,13 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <!--
+      Pin the native SQLite library to a patched build. Microsoft.Data.Sqlite 10.0.0 pulls in
+      SQLitePCLRaw.lib.e_sqlite3 2.1.11 transitively, which carries CVE-2025-6965
+      (GHSA-2m69-gcr7-jv3q). A direct reference to the 2.1.12 bundle wins over the transitive
+      2.1.11 and ships SQLite >= 3.50.2, clearing the NU1903 warning.
+    -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 
   <ItemGroup>
