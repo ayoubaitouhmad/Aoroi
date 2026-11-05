@@ -117,6 +117,61 @@ public static class DnsMessage
         return name.Length > 0;
     }
 
+    /// <summary>
+    /// Find the byte offset just past the first question (past QNAME + QTYPE + QCLASS).
+    /// That's where the answer section would begin — and the length of a header+question-only
+    /// reply.
+    /// </summary>
+    public static bool TryGetFirstQuestionEnd(byte[] packet, out int end)
+    {
+        end = 0;
+        if (packet.Length < HeaderLength + 1)
+            return false;
+
+        int questionCount = (packet[4] << 8) | packet[5];
+        if (questionCount < 1)
+            return false;
+
+        int offset = HeaderLength;
+        if (!TryReadName(packet, ref offset, out _))
+            return false;
+
+        if (offset + 4 > packet.Length)
+            return false;
+
+        end = offset + 4; // skip QTYPE (2) + QCLASS (2)
+        return true;
+    }
+
+    /// <summary>
+    /// Build an NXDOMAIN ("name does not exist", RCODE 3) reply to a query. We reuse the
+    /// query's ID and question so the client matches it to its request, flip the header into a
+    /// response, set the error code, and carry zero answer records.
+    ///
+    /// Header bytes we change:
+    ///   byte 2: set QR=1 (0x80) to mark it a response, keeping the opcode + RD bit from the query
+    ///   byte 3: 0x83 = RA=1 (we do offer recursion) + RCODE=3 (NXDOMAIN)
+    ///   bytes 6-11: zero ANCOUNT/NSCOUNT/ARCOUNT (QDCOUNT at 4-5 stays 1)
+    /// </summary>
+    public static byte[]? BuildNxDomainResponse(byte[] query)
+    {
+        if (!TryGetFirstQuestionEnd(query, out int questionEnd))
+            return null;
+
+        // Header + the original question only.
+        var response = new byte[questionEnd];
+        Array.Copy(query, response, questionEnd);
+
+        response[2] = (byte)(query[2] | 0x80); // QR=1, preserve opcode + RD
+        response[3] = 0x83;                    // RA=1, RCODE=3 (NXDOMAIN)
+
+        response[6] = 0; response[7] = 0;      // ANCOUNT = 0
+        response[8] = 0; response[9] = 0;      // NSCOUNT = 0
+        response[10] = 0; response[11] = 0;    // ARCOUNT = 0
+
+        return response;
+    }
+
     /// <summary>Human-readable name for the common record types, for logging.</summary>
     public static string TypeName(ushort type) => type switch
     {
