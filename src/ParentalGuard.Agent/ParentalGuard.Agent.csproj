@@ -1,15 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- WinExe = no console window appears when the Agent launches in the child's session. -->
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <RootNamespace>ParentalGuard.Agent</RootNamespace>
-    <!-- No window: this is a background tray helper, not a console app. -->
-    <UseWindowsForms>false</UseWindowsForms>
+    <!-- Turns on WinForms: NotifyIcon (tray), Form (overlays), and implicit
+         System.Windows.Forms / System.Drawing usings. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Required by the [LibraryImport] source generator in NativeMethods.cs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Provides Microsoft.Win32.SystemEvents.SessionSwitch (lock/unlock detection). -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.0" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ParentalGuard.Core\ParentalGuard.Core.csproj" />

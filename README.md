@@ -120,8 +120,12 @@ set up in a later milestone).
 
 ## Roadmap
 
-- [x] M1 — Usage tracking, daily limit, bedtime lock (this milestone)
-- [ ] M2 — Tray UI: on-screen countdown + native toast warnings; auto-relaunch of the Agent
+- [x] M1 — Usage tracking, daily limit, bedtime lock
+- [x] M2 — Tray UI (tray icon, balloon warnings, countdown + time's-up overlays) and a logon
+      scheduled task that auto-starts and restarts the Agent. *Known gap:* instant relaunch
+      after a deliberate kill is deferred to the hardening milestone (Service-side
+      `CreateProcessAsUser` + logoff fallback); until then, killing the Agent only stops time
+      being credited, it doesn't grant screen time.
 - [ ] M3 — Local DNS filter: category blocklists, forced SafeSearch / YouTube Restricted Mode
 - [ ] M4 — Web panel on the home network (view usage + sites, edit policy), with login
 - [ ] M5 — Bypass-proofing: disable DoH via policy, block VPN/proxy domains, Safe Mode handling
