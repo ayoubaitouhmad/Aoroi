@@ -76,6 +76,58 @@ public sealed class DnsConfig
 
     /// <summary>How long to wait for an upstream reply before trying the next one, in milliseconds.</summary>
     public int UpstreamTimeoutMs { get; set; } = 3000;
+
+    /// <summary>How often to re-download the category blocklists, in hours.</summary>
+    public int RefreshHours { get; set; } = 24;
+
+    /// <summary>
+    /// The content categories to block, each with one or more source URLs. The parent can toggle
+    /// a category off or add/replace sources by editing policy.json — no recompile. Each source
+    /// is a plain-text list in either "hosts" format (<c>0.0.0.0 domain</c>) or one-domain-per-line.
+    /// </summary>
+    public List<BlocklistCategory> Categories { get; set; } = new()
+    {
+        new BlocklistCategory
+        {
+            Name = "adult",
+            Enabled = true,
+            Sources = new() { "https://raw.githubusercontent.com/blocklistproject/Lists/master/porn.txt" }
+        },
+        new BlocklistCategory
+        {
+            Name = "gambling",
+            Enabled = true,
+            Sources = new() { "https://raw.githubusercontent.com/blocklistproject/Lists/master/gambling.txt" }
+        },
+        new BlocklistCategory
+        {
+            // UT1 (Université Toulouse Capitole) mirror — one of the few sources that categorises
+            // violence. If the URL ever changes, edit it here; other categories keep working.
+            Name = "violence",
+            Enabled = true,
+            Sources = new() { "https://raw.githubusercontent.com/olbat/ut1-blacklists/master/blacklists/agressif/domains" }
+        },
+        new BlocklistCategory
+        {
+            // UT1 "dangerous_material" = how-to-make weapons/explosives.
+            Name = "weapons",
+            Enabled = true,
+            Sources = new() { "https://raw.githubusercontent.com/olbat/ut1-blacklists/master/blacklists/dangerous_material/domains" }
+        }
+    };
+}
+
+/// <summary>One content category to block and where to fetch its domain list(s) from.</summary>
+public sealed class BlocklistCategory
+{
+    /// <summary>Short category key, used for the on-disk cache file name and logs.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Set false to stop blocking this category without deleting its sources.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>One or more URLs of plain-text domain lists (hosts format or one-per-line).</summary>
+    public List<string> Sources { get; set; } = new();
 }
 
 /// <summary>
