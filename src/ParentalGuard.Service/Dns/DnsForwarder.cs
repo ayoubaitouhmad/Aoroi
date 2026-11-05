@@ -29,11 +29,13 @@ namespace ParentalGuard.Service.Dns;
 public sealed class DnsForwarder
 {
     private readonly ConfigStore _configStore;
+    private readonly BlocklistStore _blocklist;
     private readonly ILogger<DnsForwarder> _log;
 
-    public DnsForwarder(ConfigStore configStore, ILogger<DnsForwarder> log)
+    public DnsForwarder(ConfigStore configStore, BlocklistStore blocklist, ILogger<DnsForwarder> log)
     {
         _configStore = configStore;
+        _blocklist = blocklist;
         _log = log;
     }
 
@@ -86,11 +88,25 @@ public sealed class DnsForwarder
     {
         try
         {
-            // STEP 2: read what's being asked, and log it. We don't act on it yet — this just
-            // proves we can see inside the packet, which Step 3 needs in order to block.
+            // STEP 2: read what's being asked.
             if (DnsMessage.TryReadFirstQuestion(query.Buffer, out var question) && question is not null)
             {
-                _log.LogInformation("DNS query: {Name} ({Type})",
+                // STEP 3: if the domain (or a parent of it) is blocklisted, answer "no such
+                // site" (NXDOMAIN) and do NOT forward. With no address, the browser can't
+                // connect — the site is blocked, and nothing leaves the machine.
+                if (_blocklist.IsBlocked(question.Name))
+                {
+                    byte[]? nxResponse = DnsMessage.BuildNxDomainResponse(query.Buffer);
+                    if (nxResponse is not null)
+                    {
+                        await server.SendAsync(nxResponse, nxResponse.Length, query.RemoteEndPoint);
+                        _log.LogInformation("DNS BLOCKED: {Name} ({Type})",
+                            question.Name, DnsMessage.TypeName(question.Type));
+                        return;
+                    }
+                }
+
+                _log.LogInformation("DNS allow: {Name} ({Type})",
                     question.Name, DnsMessage.TypeName(question.Type));
             }
             else
@@ -99,11 +115,11 @@ public sealed class DnsForwarder
                     query.RemoteEndPoint);
             }
 
+            // Not blocked (or unparseable): forward upstream and relay the reply back.
             byte[] response = await ForwardAsync(query.Buffer, cfg, ct);
 
             if (response.Length > 0)
             {
-                // Relay the upstream's reply back to whoever asked us.
                 await server.SendAsync(response, response.Length, query.RemoteEndPoint);
             }
             // If no upstream answered, we simply drop it; the client will retry/time out,
