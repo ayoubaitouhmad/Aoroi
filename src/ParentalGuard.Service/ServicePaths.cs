@@ -17,10 +17,14 @@ public static class ServicePaths
 
     public static string LogDir => Path.Combine(RootDir, "logs");
 
+    /// <summary>Where downloaded category blocklists are cached (one .txt per category).</summary>
+    public static string BlocklistCacheDir => Path.Combine(RootDir, "blocklists");
+
     /// <summary>Ensure the directory tree exists. Called once at startup.</summary>
     public static void EnsureCreated()
     {
         Directory.CreateDirectory(RootDir);
         Directory.CreateDirectory(LogDir);
+        Directory.CreateDirectory(BlocklistCacheDir);
     }
 }

@@ -1,26 +1,40 @@
 namespace ParentalGuard.Service.Dns;
 
 /// <summary>
-/// STEP 3 — the set of domains we refuse to resolve, plus the matching logic.
+/// The set of domains we refuse to resolve, plus the matching logic.
 ///
 /// It's an in-memory <see cref="HashSet{T}"/> of domain names for O(1) lookups. The important
 /// behaviour is <see cref="IsBlocked"/>: it blocks a listed domain AND all of its subdomains.
 /// If "pornhub.com" is on the list, then "www.pornhub.com" and "cdn.pornhub.com" are blocked
 /// too — because we check the name and each of its parent suffixes.
 ///
-/// For Step 3 it's seeded with a tiny built-in starter list, just enough to prove blocking
-/// works. In Step 4 this same list becomes the "bundled fallback", and <see cref="Replace"/>
-/// swaps in the big category lists downloaded from upstream.
+/// The store starts with a tiny <see cref="BundledFallback"/> so there is baseline protection
+/// before any download finishes (the offline fallback half of the Step 4 strategy). The
+/// <see cref="BlocklistUpdater"/> then calls <see cref="Replace"/> to swap in the full category
+/// lists once they're loaded from cache or downloaded.
 /// </summary>
 public sealed class BlocklistStore
 {
+    /// <summary>
+    /// A small built-in baseline used until the real category lists load, and whenever the
+    /// machine is offline with no cache. Intentionally tiny — real coverage comes from the
+    /// downloaded lists; this just guarantees the most obvious domains are never wide open.
+    /// </summary>
+    public static readonly IReadOnlyList<string> BundledFallback = new[]
+    {
+        // adult
+        "pornhub.com", "xvideos.com", "xnxx.com", "xhamster.com",
+        // gambling
+        "bet365.com", "stake.com", "1xbet.com"
+    };
+
     // volatile + whole-set replacement = lock-free reads. The DNS loop only ever reads this;
-    // Step 4's refresh will swap the whole reference atomically via Replace().
+    // the updater swaps the whole reference atomically via Replace().
     private volatile HashSet<string> _blocked;
 
     public BlocklistStore()
     {
-        _blocked = BuildStarterList();
+        _blocked = Build(BundledFallback);
     }
 
     /// <summary>How many domains are currently loaded.</summary>
@@ -28,8 +42,8 @@ public sealed class BlocklistStore
 
     /// <summary>
     /// True if this domain, or any parent domain of it, is on the blocklist.
-    /// e.g. with "example.com" listed: "a.b.example.com" → check "a.b.example.com",
-    /// then "b.example.com", then "example.com" (match) → blocked.
+    /// e.g. with "pornhub.com" listed: "www.pornhub.com" → check "www.pornhub.com",
+    /// then "pornhub.com" (match) → blocked.
     /// </summary>
     public bool IsBlocked(string domain)
     {
@@ -53,8 +67,10 @@ public sealed class BlocklistStore
         }
     }
 
-    /// <summary>Replace the entire blocklist atomically (used by the Step 4 refresh).</summary>
-    public void Replace(IEnumerable<string> domains)
+    /// <summary>Replace the entire blocklist atomically (used by the updater on refresh).</summary>
+    public void Replace(IEnumerable<string> domains) => _blocked = Build(domains);
+
+    private static HashSet<string> Build(IEnumerable<string> domains)
     {
         var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var d in domains)
@@ -63,25 +79,6 @@ public sealed class BlocklistStore
             if (n.Length > 0)
                 set.Add(n);
         }
-        _blocked = set;
-    }
-
-    private static HashSet<string> BuildStarterList()
-    {
-        // Minimal seed list for testing + offline fallback. Replaced by real category lists
-        // in Step 4. "example.com" is here on purpose: it normally resolves, so it's an easy
-        // before/after test (blocked here, resolves once you remove it).
-        var seed = new[]
-        {
-            "example.com",
-            "doubleclick.net",
-            "pornhub.com",
-            "bet365.com"
-        };
-
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var d in seed)
-            set.Add(Normalize(d));
         return set;
     }
 
