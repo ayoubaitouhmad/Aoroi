@@ -106,6 +106,27 @@ public sealed class DnsForwarder
                     }
                 }
 
+                // STEP 5: force SafeSearch / YouTube Restricted Mode. For a mapped search/video
+                // domain, answer address lookups with a CNAME to the provider's "safe" host
+                // instead of forwarding. Only A / AAAA / HTTPS queries are rewritten; the browser
+                // then resolves the safe host (through us) and connects there.
+                if (cfg.SafeSearchEnabled
+                    && (question.Type is 1 or 28 or 65)) // A, AAAA, HTTPS
+                {
+                    string? safeHost = SafeSearchRules.GetSafeHost(question.Name, cfg.YouTubeRestrictMode);
+                    if (safeHost is not null)
+                    {
+                        byte[]? cname = DnsMessage.BuildCnameResponse(query.Buffer, safeHost);
+                        if (cname is not null)
+                        {
+                            await server.SendAsync(cname, cname.Length, query.RemoteEndPoint);
+                            _log.LogInformation("DNS SAFESEARCH: {Name} -> {Safe}",
+                                question.Name, safeHost);
+                            return;
+                        }
+                    }
+                }
+
                 _log.LogInformation("DNS allow: {Name} ({Type})",
                     question.Name, DnsMessage.TypeName(question.Type));
             }
