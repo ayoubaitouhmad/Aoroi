@@ -172,6 +172,66 @@ public static class DnsMessage
         return response;
     }
 
+    /// <summary>
+    /// Build a reply that answers the query with a single CNAME record pointing the asked-for
+    /// name at <paramref name="target"/> (e.g. forcesafesearch.google.com). We echo the question
+    /// so the client matches the reply, use a compression pointer (0xC00C) for the answer's owner
+    /// name, and carry one CNAME record. The client then resolves <paramref name="target"/>.
+    ///
+    /// Answer record layout:
+    ///   NAME     : 0xC0 0x0C         (pointer to the question name at offset 12)
+    ///   TYPE     : 0x0005            (CNAME)
+    ///   CLASS    : 0x0001            (IN)
+    ///   TTL      : 300 seconds
+    ///   RDLENGTH : length of the encoded target name
+    ///   RDATA    : target name as length-prefixed labels, ending in 0
+    /// </summary>
+    public static byte[]? BuildCnameResponse(byte[] query, string target)
+    {
+        if (!TryGetFirstQuestionEnd(query, out int questionEnd))
+            return null;
+
+        byte[] rdata = EncodeName(target);
+        int answerLength = 2 /*name ptr*/ + 2 /*type*/ + 2 /*class*/ + 4 /*ttl*/ + 2 /*rdlen*/ + rdata.Length;
+
+        var response = new byte[questionEnd + answerLength];
+        Array.Copy(query, response, questionEnd);
+
+        // Header: response, no error, one question, one answer.
+        response[2] = (byte)(query[2] | 0x80); // QR=1, preserve opcode + RD
+        response[3] = 0x80;                    // RA=1, RCODE=0
+        response[4] = 0; response[5] = 1;      // QDCOUNT = 1
+        response[6] = 0; response[7] = 1;      // ANCOUNT = 1
+        response[8] = 0; response[9] = 0;      // NSCOUNT = 0
+        response[10] = 0; response[11] = 0;    // ARCOUNT = 0
+
+        int o = questionEnd;
+        response[o++] = 0xC0; response[o++] = 0x0C;            // NAME -> pointer to question
+        response[o++] = 0x00; response[o++] = 0x05;            // TYPE = CNAME
+        response[o++] = 0x00; response[o++] = 0x01;            // CLASS = IN
+        response[o++] = 0x00; response[o++] = 0x00;            // TTL (high)
+        response[o++] = 0x01; response[o++] = 0x2C;            // TTL (low) = 300
+        response[o++] = (byte)(rdata.Length >> 8);             // RDLENGTH high
+        response[o++] = (byte)(rdata.Length & 0xFF);           // RDLENGTH low
+        Array.Copy(rdata, 0, response, o, rdata.Length);
+
+        return response;
+    }
+
+    /// <summary>Encode a host name as DNS length-prefixed labels terminated by a zero byte.</summary>
+    private static byte[] EncodeName(string host)
+    {
+        var bytes = new List<byte>();
+        foreach (var label in host.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var raw = Encoding.ASCII.GetBytes(label);
+            bytes.Add((byte)raw.Length);
+            bytes.AddRange(raw);
+        }
+        bytes.Add(0);
+        return bytes.ToArray();
+    }
+
     /// <summary>Human-readable name for the common record types, for logging.</summary>
     public static string TypeName(ushort type) => type switch
     {
