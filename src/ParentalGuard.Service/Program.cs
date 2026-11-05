@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ParentalGuard.Service;
 using ParentalGuard.Service.Data;
+using ParentalGuard.Service.Dns;
 using ParentalGuard.Service.Ipc;
 using ParentalGuard.Service.Workers;
 
@@ -28,9 +29,11 @@ builder.Services.AddSingleton(new UsageStore(ServicePaths.DatabaseFile));
 builder.Services.AddSingleton(new ConfigStore(ServicePaths.ConfigFile));
 builder.Services.AddSingleton<UsageTracker>();
 builder.Services.AddSingleton<PipeServer>();
+builder.Services.AddSingleton<DnsForwarder>();
 
-// --- The hosted worker that runs the IPC loop. ---
+// --- The hosted workers. IpcWorker serves the Agent; DnsWorker serves DNS lookups. ---
 builder.Services.AddHostedService<IpcWorker>();
+builder.Services.AddHostedService<DnsWorker>();
 
 var host = builder.Build();
 
