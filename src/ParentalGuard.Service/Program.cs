@@ -30,11 +30,14 @@ builder.Services.AddSingleton(new ConfigStore(ServicePaths.ConfigFile));
 builder.Services.AddSingleton<UsageTracker>();
 builder.Services.AddSingleton<PipeServer>();
 builder.Services.AddSingleton<BlocklistStore>();
+builder.Services.AddSingleton<BlocklistUpdater>();
 builder.Services.AddSingleton<DnsForwarder>();
 
-// --- The hosted workers. IpcWorker serves the Agent; DnsWorker serves DNS lookups. ---
+// --- The hosted workers. IpcWorker serves the Agent; DnsWorker serves DNS lookups;
+//     BlocklistWorker keeps the category lists downloaded and refreshed. ---
 builder.Services.AddHostedService<IpcWorker>();
 builder.Services.AddHostedService<DnsWorker>();
+builder.Services.AddHostedService<BlocklistWorker>();
 
 var host = builder.Build();
 
