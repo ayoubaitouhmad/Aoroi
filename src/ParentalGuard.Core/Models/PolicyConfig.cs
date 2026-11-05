@@ -17,6 +17,9 @@ public sealed class PolicyConfig
     /// <summary>Idle beyond this many seconds stops the usage clock. Covers bathroom breaks, reading, etc.</summary>
     public int IdleThresholdSeconds { get; set; } = 120;
 
+    /// <summary>DNS content-filter settings (machine-wide, not per-child).</summary>
+    public DnsConfig Dns { get; set; } = new();
+
     /// <summary>Default config used on first run, before the parent customizes anything.</summary>
     public static PolicyConfig Default() => new()
     {
@@ -45,6 +48,34 @@ public sealed class ChildPolicy
 
     /// <summary>Set false to pause enforcement for this child (still counts, just doesn't lock).</summary>
     public bool EnforcementEnabled { get; set; } = true;
+}
+
+/// <summary>
+/// Settings for the local DNS content filter. These are machine-wide: the filter runs once
+/// inside the Service and serves every lookup from the PC. For Step 1 it only uses the listen
+/// address/port and upstream servers (it's a pure forwarder); the blocklist/category fields
+/// arrive in later steps.
+/// </summary>
+public sealed class DnsConfig
+{
+    /// <summary>Master switch for the DNS filter. When false, the Service doesn't open the listener.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Address to listen on. Loopback only by default — nothing off this machine can use it.</summary>
+    public string ListenAddress { get; set; } = "127.0.0.1";
+
+    /// <summary>DNS port. The standard is 53; the adapter will be pointed here in a later step.</summary>
+    public int Port { get; set; } = 53;
+
+    /// <summary>
+    /// Upstream resolvers we forward allowed queries to, tried in order. Cloudflare by default;
+    /// later you can swap in a family resolver (e.g. CleanBrowsing) to get porn filtering for free
+    /// underneath our own category blocking.
+    /// </summary>
+    public List<string> UpstreamServers { get; set; } = new() { "1.1.1.1", "1.0.0.1" };
+
+    /// <summary>How long to wait for an upstream reply before trying the next one, in milliseconds.</summary>
+    public int UpstreamTimeoutMs { get; set; } = 3000;
 }
 
 /// <summary>
