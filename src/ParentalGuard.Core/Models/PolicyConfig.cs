@@ -77,6 +77,16 @@ public sealed class DnsConfig
     /// <summary>How long to wait for an upstream reply before trying the next one, in milliseconds.</summary>
     public int UpstreamTimeoutMs { get; set; } = 3000;
 
+    /// <summary>
+    /// Force SafeSearch on the major search engines and Restricted Mode on YouTube, by
+    /// answering their lookups with the providers' "safe" hostnames. Can't be turned off from
+    /// inside the browser.
+    /// </summary>
+    public bool SafeSearchEnabled { get; set; } = true;
+
+    /// <summary>YouTube Restricted Mode strength: "strict", "moderate", or "off".</summary>
+    public string YouTubeRestrictMode { get; set; } = "strict";
+
     /// <summary>How often to re-download the category blocklists, in hours.</summary>
     public int RefreshHours { get; set; } = 24;
 
