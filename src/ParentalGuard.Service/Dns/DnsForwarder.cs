@@ -86,6 +86,19 @@ public sealed class DnsForwarder
     {
         try
         {
+            // STEP 2: read what's being asked, and log it. We don't act on it yet — this just
+            // proves we can see inside the packet, which Step 3 needs in order to block.
+            if (DnsMessage.TryReadFirstQuestion(query.Buffer, out var question) && question is not null)
+            {
+                _log.LogInformation("DNS query: {Name} ({Type})",
+                    question.Name, DnsMessage.TypeName(question.Type));
+            }
+            else
+            {
+                _log.LogDebug("DNS query from {Client}: could not parse a question.",
+                    query.RemoteEndPoint);
+            }
+
             byte[] response = await ForwardAsync(query.Buffer, cfg, ct);
 
             if (response.Length > 0)
